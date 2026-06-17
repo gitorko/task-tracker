@@ -35,18 +35,12 @@ const urgencyColor = (days) => {
 const inp = { background:"#F8F9FC", border:"1.5px solid #DDE3F0", borderRadius:10, color:"#1a1f36", padding:"11px 14px", fontSize:16, width:"100%", outline:"none", fontFamily:"inherit", boxSizing:"border-box" };
 
 const SWIPE_THRESHOLD = 80;
-const STORAGE_KEY = "task_tracker_items";
 
-const loadItems = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-};
-const saveItems = (items) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items)); } catch {}
+const api = {
+  getAll: () => fetch("/api/tasks").then((r) => r.json()),
+  create: (item) => fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }).then((r) => r.json()),
+  update: (item) => fetch(`/api/tasks/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }).then((r) => r.json()),
+  remove: (id) => fetch(`/api/tasks/${id}`, { method: "DELETE" }),
 };
 
 function SwipeCard({ item, getDays, getDisplayDate, onEdit, onDelete, onDone }) {
@@ -251,7 +245,8 @@ function ImportModal({ onClose, onImport }) {
 }
 
 export default function App() {
-  const [items, setItems] = useState(() => loadItems());
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -265,7 +260,7 @@ export default function App() {
   const [form, setForm] = useState({ label:"", category:"Vehicle", sub:"", date:"", recurring:false, dayOfMonth:"" });
   const [errors, setErrors] = useState({});
 
-  useEffect(() => { saveItems(items); }, [items]);
+  useEffect(() => { api.getAll().then(setItems).finally(() => setLoading(false)); }, []);
 
   const getDays = useCallback((item) => {
     if (item.recurring) return Math.ceil((nextRecurringDate(item.dayOfMonth, item.snoozeUntil) - TODAY) / 86400000);
@@ -283,14 +278,18 @@ export default function App() {
     if (item.recurring) {
       const next = nextRecurringDate(item.dayOfMonth, item.snoozeUntil);
       const advanced = new Date(next.getFullYear(), next.getMonth() + 1, item.dayOfMonth);
-      setItems(prev => prev.map(i => i.id === item.id ? { ...i, snoozeUntil: advanced.toISOString() } : i));
+      const updated = { ...item, snoozeUntil: advanced.toISOString() };
+      api.update(updated).then(() => setItems(prev => prev.map(i => i.id === item.id ? updated : i)));
     } else {
       setDoneModal({ id: item.id, nextDate: default365() });
     }
   };
 
   const confirmDone = () => {
-    setItems(prev => prev.map(i => i.id === doneModal.id ? { ...i, date: doneModal.nextDate } : i));
+    const updated = items.find(i => i.id === doneModal.id);
+    if (!updated) return;
+    const next = { ...updated, date: doneModal.nextDate };
+    api.update(next).then(() => setItems(prev => prev.map(i => i.id === doneModal.id ? next : i)));
     setDoneModal(null);
   };
 
@@ -304,8 +303,12 @@ export default function App() {
 
   const handleSubmit = () => {
     if (!validate()) return;
-    const entry = { id: editId || Date.now().toString(), label: form.label.trim(), category: form.category, sub: form.sub.trim(), date: form.recurring ? null : form.date, recurring: form.recurring, dayOfMonth: form.recurring ? Number(form.dayOfMonth) : undefined };
-    setItems(prev => editId ? prev.map(i => i.id === editId ? entry : i) : [...prev, entry]);
+    const entry = { id: editId || Date.now().toString(), label: form.label.trim(), category: form.category, sub: form.sub.trim(), date: form.recurring ? null : form.date, recurring: form.recurring, dayOfMonth: form.recurring ? Number(form.dayOfMonth) : undefined, createdAt: editId ? (items.find(i => i.id === editId)?.createdAt || new Date().toISOString()) : new Date().toISOString() };
+    if (editId) {
+      api.update(entry).then(() => setItems(prev => prev.map(i => i.id === editId ? entry : i)));
+    } else {
+      api.create(entry).then(() => setItems(prev => [...prev, entry]));
+    }
     closeForm();
   };
 
@@ -323,6 +326,12 @@ export default function App() {
 
   const urgent = items.filter(i => getDays(i) <= 30).sort((a, b) => getDays(a) - getDays(b));
   const counts = CATEGORIES.reduce((acc, cat) => { acc[cat] = cat === "All" ? items.length : items.filter(i => i.category === cat).length; return acc; }, {});
+
+  if (loading) return (
+    <div style={{ minHeight:"100vh", background:"#F0F2FA", display:"flex", alignItems:"center", justifyContent:"center", color:"#8892b0", fontSize:15, fontWeight:600 }}>
+      Loading…
+    </div>
+  );
 
   return (
     <div style={{ minHeight:"100vh", background:"#F0F2FA", color:"#1a1f36" }}>
@@ -417,7 +426,13 @@ export default function App() {
       {showAdd && <AddEditModal editId={editId} form={form} setForm={setForm} errors={errors} onSubmit={handleSubmit} onClose={closeForm} />}
       {doneModal && <DoneModal doneModal={doneModal} setDoneModal={setDoneModal} onConfirm={confirmDone} />}
       {showExport && <ExportModal items={items} onClose={() => setShowExport(false)} />}
-      {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={(p) => { setItems(p); setShowImport(false); }} />}
+      {showImport && <ImportModal onClose={() => setShowImport(false)} onImport={(p) => {
+        Promise.all([
+          ...items.map(i => api.remove(i.id)),
+          ...p.map(i => api.create({ ...i, createdAt: i.createdAt || new Date().toISOString() }))
+        ]).then(() => setItems(p));
+        setShowImport(false);
+      }} />}
 
       {showClearConfirm && (
         <div style={{ position:"fixed", inset:0, background:"#1a1f3688", zIndex:100, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }}>
@@ -427,7 +442,7 @@ export default function App() {
             <div style={{ color:"#8892b0", fontSize:14, marginBottom:22 }}>Permanently removes all {items.length} items. Export first if you want a backup.</div>
             <div style={{ display:"flex", gap:10 }}>
               <button onClick={() => setShowClearConfirm(false)} style={{ flex:1, background:"#F0F2FA", border:"1.5px solid #DDE3F0", borderRadius:10, padding:"11px", color:"#5a6480", cursor:"pointer", fontSize:15, fontWeight:600 }}>Cancel</button>
-              <button onClick={() => { setItems([]); setShowClearConfirm(false); }} style={{ flex:1, background:"#E53935", border:"none", borderRadius:10, padding:"11px", color:"#fff", fontWeight:700, cursor:"pointer", fontSize:15 }}>Delete All</button>
+              <button onClick={() => { Promise.all(items.map(i => api.remove(i.id))).then(() => setItems([])); setShowClearConfirm(false); }} style={{ flex:1, background:"#E53935", border:"none", borderRadius:10, padding:"11px", color:"#fff", fontWeight:700, cursor:"pointer", fontSize:15 }}>Delete All</button>
             </div>
           </div>
         </div>
@@ -441,7 +456,7 @@ export default function App() {
             <div style={{ color:"#8892b0", fontSize:14, marginBottom:22 }}>This will permanently delete this reminder.</div>
             <div style={{ display:"flex", gap:10 }}>
               <button onClick={() => setDeleteId(null)} style={{ flex:1, background:"#F0F2FA", border:"1.5px solid #DDE3F0", borderRadius:10, padding:"11px", color:"#5a6480", cursor:"pointer", fontSize:15, fontWeight:600 }}>Cancel</button>
-              <button onClick={() => { setItems(prev => prev.filter(i => i.id !== deleteId)); setDeleteId(null); }} style={{ flex:1, background:"#E53935", border:"none", borderRadius:10, padding:"11px", color:"#fff", fontWeight:700, cursor:"pointer", fontSize:15 }}>Remove</button>
+              <button onClick={() => { api.remove(deleteId).then(() => setItems(prev => prev.filter(i => i.id !== deleteId))); setDeleteId(null); }} style={{ flex:1, background:"#E53935", border:"none", borderRadius:10, padding:"11px", color:"#fff", fontWeight:700, cursor:"pointer", fontSize:15 }}>Remove</button>
             </div>
           </div>
         </div>

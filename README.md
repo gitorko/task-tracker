@@ -24,6 +24,23 @@ A simple task tracking app built with React and Vite.
 
 4. Open your browser at `http://localhost:5173`
 
+## Database Setup (Vercel Postgres)
+
+This app uses Vercel Postgres for persistent storage. Set it up once before deploying:
+
+1. Go to your project in the [Vercel dashboard](https://vercel.com/dashboard).
+2. Click the **Storage** tab → **Create Database** → choose **Postgres**.
+3. Follow the prompts — Vercel automatically adds `POSTGRES_URL` and related env vars to your project.
+4. That's it. The table is created automatically on the first request.
+
+For **local development**, install the [Vercel CLI](https://vercel.com/docs/cli) and run:
+```bash
+npm install -g vercel
+vercel link        # link to your Vercel project
+vercel env pull .env.local   # pulls DATABASE_URL into a local .env file
+npm run dev
+```
+
 ## Deploy to Vercel
 
 ### Option 1 — Vercel CLI
