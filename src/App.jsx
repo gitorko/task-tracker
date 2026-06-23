@@ -10,11 +10,10 @@ function b64urlDecode(str) {
 }
 
 function getStoredToken() {
-  // In dev mode, skip auth entirely — go straight into the app
-  if (!import.meta.env.PROD) return 'dev';
   try {
     const token = localStorage.getItem(AUTH_KEY);
     if (!token) return null;
+    if (token === 'dev') return token; // dev session — no expiry check needed locally
     const [payload] = token.split('.');
     if (!payload) return null;
     const { exp } = JSON.parse(b64urlDecode(payload));
@@ -50,6 +49,17 @@ function LoginPage({ onLogin }) {
     setError('');
     setLoading(true);
     try {
+      if (!import.meta.env.PROD) {
+        // Dev mode: validate against VITE_AUTH_USER / VITE_AUTH_PASS in .env.local
+        if (username === import.meta.env.VITE_AUTH_USER && password === import.meta.env.VITE_AUTH_PASS) {
+          localStorage.setItem(AUTH_KEY, 'dev');
+          onLogin('dev');
+        } else {
+          setError('Invalid username or password');
+        }
+        setLoading(false);
+        return;
+      }
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +92,6 @@ function LoginPage({ onLogin }) {
             <input
               autoFocus autoComplete="username" value={username}
               onChange={e => setUsername(e.target.value)}
-              placeholder="admin"
               style={{ background: '#F8F9FC', border: '1.5px solid #DDE3F0', borderRadius: 10, color: '#1a1f36', padding: '11px 14px', fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit' }}
             />
           </div>
@@ -92,7 +101,6 @@ function LoginPage({ onLogin }) {
               <input
                 type={showPwd ? 'text' : 'password'} autoComplete="current-password" value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
                 style={{ background: '#F8F9FC', border: '1.5px solid #DDE3F0', borderRadius: 10, color: '#1a1f36', padding: '11px 44px 11px 14px', fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit' }}
               />
               <button type="button" onClick={() => setShowPwd(v => !v)}
@@ -482,6 +490,7 @@ function AuthenticatedApp({ onLogout }) {
             style={{ background:"#4361EE", color:"#fff", border:"none", borderRadius:10, padding:"9px 18px", fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:"0 4px 14px #4361EE40" }}>
             + Add
           </button>
+          <button onClick={onLogout} style={{ background:"none", border:"none", fontSize:12, color:"#8892b0", cursor:"pointer", fontFamily:"inherit", padding:"4px 2px", fontWeight:500 }}>Sign out</button>
           <div style={{ position:"relative" }}>
             <button onClick={() => setShowMenu(m => !m)} style={{ background:"#F0F2FA", border:"1.5px solid #DDE3F0", borderRadius:10, padding:"9px 13px", fontSize:17, cursor:"pointer" }}>⋮</button>
             {showMenu && <>
@@ -491,7 +500,6 @@ function AuthenticatedApp({ onLogout }) {
                   { icon:"📤", label:"Export tasks", action:() => { setShowExport(true); setShowMenu(false); } },
                   { icon:"📥", label:"Import tasks", action:() => { setShowImport(true); setShowMenu(false); } },
                   { icon:"🗑️", label:"Delete all tasks", action:() => { setShowClearConfirm(true); setShowMenu(false); }, danger:true },
-                  { icon:"🔓", label:"Sign out", action:() => { setShowMenu(false); onLogout(); }, danger:true },
                 ].map(({ icon, label, action, danger }) => (
                   <button key={label} onClick={action} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"13px 16px", background:"none", border:"none", cursor:"pointer", fontSize:14, fontWeight:600, color:danger?"#E53935":"#1a1f36", borderTop:danger?"1px solid #EEF0FA":"none" }}>
                     <span>{icon}</span>{label}

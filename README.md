@@ -6,15 +6,11 @@ A simple task tracking app built with React and Vite.
 
 The app is protected by a login screen. Credentials are stored in Vercel environment variables — nothing is hardcoded in the repo.
 
-**Default credentials (set by you in Vercel):**
-- Username: set via `AUTH_USERNAME`
-- Password: set via `AUTH_PASSWORD`
-
 Once logged in the session token is valid for **90 days** and stored in the browser. Users can sign out from the ⋮ menu.
 
 ## Run Locally
 
-**Prerequisites:** Node.js 18+ and the [Vercel CLI](https://vercel.com/docs/cli) installed.
+**Prerequisites:** Node.js 18+
 
 1. Clone the repository:
    ```bash
@@ -27,30 +23,20 @@ Once logged in the session token is valid for **90 days** and stored in the brow
    npm install
    ```
 
-3. Fill in your local environment variables in `.env.local` (already gitignored):
+3. Fill in `.env.local` (already gitignored) with your local credentials:
    ```
-   AUTH_USERNAME=admin
-   AUTH_PASSWORD=your-password
-   AUTH_SECRET=any-long-random-string
+   VITE_AUTH_USER=admin
+   VITE_AUTH_PASS=your-password
    ```
 
-4. Start the development server:
+4. Start the dev server:
    ```bash
    npm run dev
    ```
 
-5. Open your browser at `http://localhost:5173`
+5. Open `http://localhost:5173` — sign in with the credentials from `.env.local`.
 
-> **No database needed for local development.** In dev mode the app uses browser `localStorage` instead of Postgres. A yellow banner in the app confirms this. Data added locally does not sync to the deployed database. The login screen is also skipped in dev mode — you go straight into the app.
-
-## Database Setup (Neon Postgres)
-
-This app uses Neon Postgres for persistent storage. Set it up once before deploying:
-
-1. Go to your project in the [Vercel dashboard](https://vercel.com/dashboard).
-2. Click the **Storage** tab → **Create Database** → choose **Postgres (Neon)**.
-3. Follow the prompts — Vercel automatically adds `DATABASE_URL` to your project env vars.
-4. The `tasks` table is created automatically on the first request.
+> **No database needed locally.** In dev mode the app uses browser `localStorage` instead of Postgres. A yellow banner in the app confirms this. Data added locally does not sync to the deployed database.
 
 ## Deploy to Vercel
 
@@ -69,16 +55,20 @@ Push your code to a GitHub repository.
 
 ### Step 3 — Set Environment Variables
 
-Before deploying, go to **Settings → Environment Variables** and add:
+Go to **Settings → Environment Variables** and add:
 
 | Variable | Value |
 |---|---|
 | `AUTH_USERNAME` | `admin` |
 | `AUTH_PASSWORD` | your chosen password |
-| `AUTH_SECRET` | a long random string (e.g. `openssl rand -hex 32`) |
-| `DATABASE_URL` | added automatically when you attach a Postgres database |
+| `AUTH_SECRET` | a long random string (run `openssl rand -hex 32` to generate one) |
+| `DATABASE_URL` | added automatically when you attach a Neon Postgres database |
 
-### Step 4 — Deploy
+### Step 4 — Attach a Database
+
+In your Vercel project go to the **Storage** tab → **Create Database** → choose **Postgres (Neon)**. Vercel will automatically add `DATABASE_URL`. The `tasks` table is created on the first request.
+
+### Step 5 — Deploy
 
 Click **Deploy**. Your app will be live in under a minute.
 
@@ -86,4 +76,4 @@ Click **Deploy**. Your app will be live in under a minute.
 
 ### Updating the Password
 
-To change the password later, go to **Settings → Environment Variables** in the Vercel dashboard, update `AUTH_PASSWORD`, and redeploy. Anyone already logged in will remain logged in until their 90-day token expires.
+Go to **Settings → Environment Variables**, update `AUTH_PASSWORD`, and redeploy. Anyone already logged in stays logged in until their 90-day token expires.
