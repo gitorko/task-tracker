@@ -1,5 +1,117 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+
+const AUTH_KEY = 'task-tracker-auth';
+
+function b64urlDecode(str) {
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  return atob(b64 + '='.repeat((4 - b64.length % 4) % 4));
+}
+
+function getStoredToken() {
+  // In dev mode, skip auth entirely — go straight into the app
+  if (!import.meta.env.PROD) return 'dev';
+  try {
+    const token = localStorage.getItem(AUTH_KEY);
+    if (!token) return null;
+    const [payload] = token.split('.');
+    if (!payload) return null;
+    const { exp } = JSON.parse(b64urlDecode(payload));
+    if (!exp || exp < Date.now()) { localStorage.removeItem(AUTH_KEY); return null; }
+    return token;
+  } catch {
+    localStorage.removeItem(AUTH_KEY);
+    return null;
+  }
+}
+
+function authFetch(url, opts = {}) {
+  const token = localStorage.getItem(AUTH_KEY) || '';
+  return fetch(url, {
+    ...opts,
+    headers: { ...(opts.headers || {}), 'Authorization': `Bearer ${token}` },
+  }).then(r => {
+    if (r.status === 401) { localStorage.removeItem(AUTH_KEY); window.location.reload(); }
+    return r;
+  });
+}
+
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (loading) return;
+    setError('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      if (res.ok) {
+        const { token } = await res.json();
+        localStorage.setItem(AUTH_KEY, token);
+        onLogin(token);
+      } else {
+        setError('Invalid username or password');
+      }
+    } catch {
+      setError('Connection error — please try again');
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#F0F2FA', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <div style={{ background: '#fff', border: '1.5px solid #DDE3F0', borderRadius: 20, padding: 32, width: '100%', maxWidth: 400, boxShadow: '0 20px 60px #1a1f3614' }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ fontSize: 40, marginBottom: 10 }}>✅</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: '#1a1f36' }}>Task Tracker</div>
+          <div style={{ fontSize: 13, color: '#8892b0', marginTop: 4 }}>Sign in to continue</div>
+        </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 12, color: '#8892b0', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Username</label>
+            <input
+              autoFocus autoComplete="username" value={username}
+              onChange={e => setUsername(e.target.value)}
+              placeholder="admin"
+              style={{ background: '#F8F9FC', border: '1.5px solid #DDE3F0', borderRadius: 10, color: '#1a1f36', padding: '11px 14px', fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit' }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: '#8892b0', marginBottom: 5, display: 'block', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 600 }}>Password</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPwd ? 'text' : 'password'} autoComplete="current-password" value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{ background: '#F8F9FC', border: '1.5px solid #DDE3F0', borderRadius: 10, color: '#1a1f36', padding: '11px 44px 11px 14px', fontSize: 15, width: '100%', outline: 'none', fontFamily: 'inherit' }}
+              />
+              <button type="button" onClick={() => setShowPwd(v => !v)}
+                style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#8892b0', padding: 2 }}>
+                {showPwd ? '🙈' : '👁️'}
+              </button>
+            </div>
+          </div>
+          {error && <div style={{ fontSize: 13, color: '#E53935', background: '#FFF0F0', border: '1px solid #FFC5C5', borderRadius: 8, padding: '8px 12px' }}>{error}</div>}
+          <button type="submit" disabled={loading}
+            style={{ background: loading ? '#a5b4fc' : '#4361EE', color: '#fff', border: 'none', borderRadius: 10, padding: '13px', fontWeight: 700, fontSize: 15, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'inherit', marginTop: 4, boxShadow: '0 4px 14px #4361EE30' }}>
+            {loading ? 'Signing in…' : 'Sign In'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 const TODAY = new Date();
 TODAY.setHours(0, 0, 0, 0);
 
@@ -36,12 +148,27 @@ const inp = { background:"#F8F9FC", border:"1.5px solid #DDE3F0", borderRadius:1
 
 const SWIPE_THRESHOLD = 80;
 
-const api = {
-  getAll: () => fetch("/api/tasks").then((r) => r.json()),
-  create: (item) => fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }).then((r) => r.json()),
-  update: (item) => fetch(`/api/tasks/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }).then((r) => r.json()),
-  remove: (id) => fetch(`/api/tasks/${id}`, { method: "DELETE" }),
+const LS_KEY = 'task-tracker-tasks';
+const IS_DEV = !import.meta.env.PROD;
+
+const local = {
+  getAll: () => { try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; } },
+  save: (tasks) => localStorage.setItem(LS_KEY, JSON.stringify(tasks)),
 };
+
+const api = IS_DEV
+  ? {
+      getAll: () => Promise.resolve(local.getAll()),
+      create: (item) => { const tasks = local.getAll(); tasks.push(item); local.save(tasks); return Promise.resolve(item); },
+      update: (item) => { local.save(local.getAll().map(t => t.id === item.id ? item : t)); return Promise.resolve(item); },
+      remove: (id) => { local.save(local.getAll().filter(t => t.id !== id)); return Promise.resolve(); },
+    }
+  : {
+      getAll: () => authFetch("/api/tasks").then((r) => r.json()),
+      create: (item) => authFetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }).then((r) => r.json()),
+      update: (item) => authFetch(`/api/tasks/${item.id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item) }).then((r) => r.json()),
+      remove: (id) => authFetch(`/api/tasks/${id}`, { method: "DELETE" }),
+    };
 
 function SwipeCard({ item, getDays, getDisplayDate, onEdit, onDelete, onDone }) {
   const days = getDays(item);
@@ -245,6 +372,16 @@ function ImportModal({ onClose, onImport }) {
 }
 
 export default function App() {
+  const [authToken, setAuthToken] = useState(() => getStoredToken());
+
+  if (!authToken) {
+    return <LoginPage onLogin={setAuthToken} />;
+  }
+
+  return <AuthenticatedApp onLogout={() => { localStorage.removeItem(AUTH_KEY); setAuthToken(null); }} />;
+}
+
+function AuthenticatedApp({ onLogout }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -354,6 +491,7 @@ export default function App() {
                   { icon:"📤", label:"Export tasks", action:() => { setShowExport(true); setShowMenu(false); } },
                   { icon:"📥", label:"Import tasks", action:() => { setShowImport(true); setShowMenu(false); } },
                   { icon:"🗑️", label:"Delete all tasks", action:() => { setShowClearConfirm(true); setShowMenu(false); }, danger:true },
+                  { icon:"🔓", label:"Sign out", action:() => { setShowMenu(false); onLogout(); }, danger:true },
                 ].map(({ icon, label, action, danger }) => (
                   <button key={label} onClick={action} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"13px 16px", background:"none", border:"none", cursor:"pointer", fontSize:14, fontWeight:600, color:danger?"#E53935":"#1a1f36", borderTop:danger?"1px solid #EEF0FA":"none" }}>
                     <span>{icon}</span>{label}
@@ -367,6 +505,13 @@ export default function App() {
 
       <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 16px" }}>
         <div style={{ fontSize:12, color:"#8892b0", textAlign:"center", marginBottom:16 }}>👉 Swipe right on any card to mark as done</div>
+
+        {IS_DEV && (
+          <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"8px 14px", marginBottom:14, fontSize:13, color:"#92400e", display:"flex", alignItems:"center", gap:6 }}>
+            <span>🧪</span>
+            <span>Dev mode — data saved to browser localStorage (not Postgres)</span>
+          </div>
+        )}
 
         {urgent.length > 0 && (
           <div style={{ marginBottom:24 }}>
