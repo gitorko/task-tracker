@@ -127,8 +127,8 @@ const parseDate = (str) => { const d = new Date(str); d.setHours(0,0,0,0); retur
 const daysUntil = (dateStr) => Math.ceil((parseDate(dateStr) - TODAY) / 86400000);
 const formatDate = (str) => parseDate(str).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
 
-const CATEGORIES = ["All","Vehicle","Insurance","Mobile","OTT","Internet","Document","Recurring","Electricity","Water","Property Tax"];
-const CATEGORY_ICONS = { Vehicle:"🚗", Insurance:"🛡️", Mobile:"📱", OTT:"🎬", Internet:"🌐", Document:"🪪", Recurring:"🔄", Electricity:"⚡", Water:"💧", "Property Tax":"🏠" };
+const CATEGORIES = ["All","Vehicle","Insurance","Mobile","OTT","Internet","Document","Recurring","Electricity","Water","Property Tax","Rent"];
+const CATEGORY_ICONS = { Vehicle:"🚗", Insurance:"🛡️", Mobile:"📱", OTT:"🎬", Internet:"🌐", Document:"🪪", Recurring:"🔄", Electricity:"⚡", Water:"💧", "Property Tax":"🏠", Rent:"🔑" };
 const getItemIcon = (item) => {
   if (item.label.toLowerCase().includes("fiber")) return "📡";
   return CATEGORY_ICONS[item.category] || "📋";
@@ -178,7 +178,7 @@ const api = IS_DEV
       remove: (id) => authFetch(`/api/tasks/${id}`, { method: "DELETE" }),
     };
 
-function SwipeCard({ item, getDays, getDisplayDate, onEdit, onDelete, onDone }) {
+function SwipeCard({ item, getDays, getDisplayDate, onEdit, onDelete, onDone, swipeable = false }) {
   const days = getDays(item);
   const u = urgencyColor(days);
   const isUrgent = days <= 90;
@@ -203,11 +203,16 @@ function SwipeCard({ item, getDays, getDisplayDate, onEdit, onDelete, onDone }) 
 
   return (
     <div style={{ position:"relative", borderRadius:14, overflow:"hidden" }}>
-      <div style={{ position:"absolute", inset:0, background:`rgba(46,125,50,${0.08 + rev*0.15})`, borderRadius:14, display:"flex", alignItems:"center", paddingLeft:20 }}>
-        <span style={{ fontSize:22, opacity:rev }}>✅</span>
-        <span style={{ marginLeft:8, fontWeight:700, fontSize:14, color:"#2E7D32", opacity:rev }}>Done</span>
-      </div>
-      <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+      {swipeable && (
+        <div style={{ position:"absolute", inset:0, background:`rgba(46,125,50,${0.08 + rev*0.15})`, borderRadius:14, display:"flex", alignItems:"center", paddingLeft:20 }}>
+          <span style={{ fontSize:22, opacity:rev }}>✅</span>
+          <span style={{ marginLeft:8, fontWeight:700, fontSize:14, color:"#2E7D32", opacity:rev }}>Done</span>
+        </div>
+      )}
+      <div
+        onTouchStart={swipeable ? onTouchStart : undefined}
+        onTouchMove={swipeable ? onTouchMove : undefined}
+        onTouchEnd={swipeable ? onTouchEnd : undefined}
         style={{ background:"#fff", border:`1.5px solid ${isUrgent ? u.border : "#DDE3F0"}`, borderRadius:14, padding:"14px",
           display:"flex", flexDirection:"column", gap:10,
           transform:`translateX(${offsetX}px)`, transition:swiping?"none":"transform 0.25s cubic-bezier(.22,.68,0,1.2)", position:"relative", zIndex:1 }}>
@@ -404,6 +409,7 @@ function AuthenticatedApp({ onLogout }) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [form, setForm] = useState({ label:"", category:"Vehicle", sub:"", date:"", recurring:false, dayOfMonth:"" });
   const [errors, setErrors] = useState({});
+  const [activeTab, setActiveTab] = useState("attention");
 
   useEffect(() => { api.getAll().then(setItems).finally(() => setLoading(false)); }, []);
 
@@ -480,40 +486,66 @@ function AuthenticatedApp({ onLogout }) {
 
   return (
     <div style={{ minHeight:"100vh", background:"#F0F2FA", color:"#1a1f36" }}>
-      <div style={{ background:"#fff", borderBottom:"1.5px solid #DDE3F0", padding:"16px 20px", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, zIndex:50 }}>
-        <div>
-          <div style={{ fontSize:20, fontWeight:800, color:"#1a1f36" }}><span style={{ color:"#4361EE" }}>✅</span> Task Tracker</div>
-          <div style={{ fontSize:12, color:"#8892b0" }}>Expiry & renewal tracker</div>
+      <div style={{ position:"sticky", top:0, zIndex:50, background:"#F0F2FA" }}>
+        {/* ── Header ── */}
+        <div style={{ background:"#fff", borderBottom:"1.5px solid #DDE3F0", padding:"16px 20px 14px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+          <div>
+            <div style={{ fontSize:20, fontWeight:800, color:"#1a1f36" }}><span style={{ color:"#4361EE" }}>✅</span> Task Tracker</div>
+            <div style={{ fontSize:12, color:"#8892b0" }}>Expiry & renewal tracker</div>
+          </div>
+          <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+            <button onClick={onLogout} style={{ background:"none", border:"none", fontSize:12, color:"#8892b0", cursor:"pointer", fontFamily:"inherit", padding:"4px 2px", fontWeight:500 }}>Sign out</button>
+            <div style={{ position:"relative" }}>
+              <button onClick={() => setShowMenu(m => !m)} style={{ background:"#F0F2FA", border:"1.5px solid #DDE3F0", borderRadius:10, padding:"9px 13px", fontSize:17, cursor:"pointer" }}>⋮</button>
+              {showMenu && <>
+                <div style={{ position:"fixed", inset:0, zIndex:90 }} onClick={() => setShowMenu(false)} />
+                <div style={{ position:"absolute", right:0, top:42, background:"#fff", border:"1.5px solid #DDE3F0", borderRadius:12, boxShadow:"0 8px 30px #1a1f3618", zIndex:100, minWidth:190, overflow:"hidden" }}>
+                  {[
+                    { icon:"📤", label:"Export tasks", action:() => { setShowExport(true); setShowMenu(false); } },
+                    { icon:"📥", label:"Import tasks", action:() => { setShowImport(true); setShowMenu(false); } },
+                    { icon:"🗑️", label:"Delete all tasks", action:() => { setShowClearConfirm(true); setShowMenu(false); }, danger:true },
+                  ].map(({ icon, label, action, danger }) => (
+                    <button key={label} onClick={action} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"13px 16px", background:"none", border:"none", cursor:"pointer", fontSize:14, fontWeight:600, color:danger?"#E53935":"#1a1f36", borderTop:danger?"1px solid #EEF0FA":"none" }}>
+                      <span>{icon}</span>{label}
+                    </button>
+                  ))}
+                </div>
+              </>}
+            </div>
+          </div>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
-          <button onClick={() => { setShowAdd(true); setEditId(null); setForm({ label:"", category:"Vehicle", sub:"", date:"", recurring:false, dayOfMonth:"" }); setErrors({}); }}
-            style={{ background:"#4361EE", color:"#fff", border:"none", borderRadius:10, padding:"9px 18px", fontWeight:700, fontSize:14, cursor:"pointer", boxShadow:"0 4px 14px #4361EE40" }}>
-            + Add
-          </button>
-          <button onClick={onLogout} style={{ background:"none", border:"none", fontSize:12, color:"#8892b0", cursor:"pointer", fontFamily:"inherit", padding:"4px 2px", fontWeight:500 }}>Sign out</button>
-          <div style={{ position:"relative" }}>
-            <button onClick={() => setShowMenu(m => !m)} style={{ background:"#F0F2FA", border:"1.5px solid #DDE3F0", borderRadius:10, padding:"9px 13px", fontSize:17, cursor:"pointer" }}>⋮</button>
-            {showMenu && <>
-              <div style={{ position:"fixed", inset:0, zIndex:90 }} onClick={() => setShowMenu(false)} />
-              <div style={{ position:"absolute", right:0, top:42, background:"#fff", border:"1.5px solid #DDE3F0", borderRadius:12, boxShadow:"0 8px 30px #1a1f3618", zIndex:100, minWidth:190, overflow:"hidden" }}>
-                {[
-                  { icon:"📤", label:"Export tasks", action:() => { setShowExport(true); setShowMenu(false); } },
-                  { icon:"📥", label:"Import tasks", action:() => { setShowImport(true); setShowMenu(false); } },
-                  { icon:"🗑️", label:"Delete all tasks", action:() => { setShowClearConfirm(true); setShowMenu(false); }, danger:true },
-                ].map(({ icon, label, action, danger }) => (
-                  <button key={label} onClick={action} style={{ display:"flex", alignItems:"center", gap:10, width:"100%", padding:"13px 16px", background:"none", border:"none", cursor:"pointer", fontSize:14, fontWeight:600, color:danger?"#E53935":"#1a1f36", borderTop:danger?"1px solid #EEF0FA":"none" }}>
-                    <span>{icon}</span>{label}
-                  </button>
-                ))}
-              </div>
-            </>}
+
+        {/* ── Segmented tab control ── */}
+        <div style={{ padding:"12px 16px" }}>
+          <div style={{ display:"flex", gap:4, background:"#E2E6F5", borderRadius:12, padding:4 }}>
+            {[
+              { id:"attention", label:"Needs Attention", icon:"⚡", badge: urgent.length },
+              { id:"all",       label:"All Tasks",       icon:"📋", badge: 0 },
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab"
+                style={{
+                  flex:1, padding:"9px 8px", borderRadius:9, border:"none", cursor:"pointer", fontFamily:"inherit",
+                  background: activeTab===tab.id ? "#fff" : "transparent",
+                  color: activeTab===tab.id ? "#1a1f36" : "#8892b0",
+                  fontWeight: activeTab===tab.id ? 700 : 500, fontSize:14,
+                  boxShadow: activeTab===tab.id ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  transition:"all 0.15s",
+                }}>
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+                {tab.badge > 0 && (
+                  <span style={{ background:"#E53935", color:"#fff", borderRadius:10, padding:"1px 7px", fontSize:11, fontWeight:700, lineHeight:"18px" }}>
+                    {tab.badge}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 16px" }}>
-        <div style={{ fontSize:12, color:"#8892b0", textAlign:"center", marginBottom:16 }}>👉 Swipe right on any card to mark as done</div>
-
+      <div style={{ maxWidth:700, margin:"0 auto", padding:"20px 16px 100px" }}>
         {IS_DEV && (
           <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:10, padding:"8px 14px", marginBottom:14, fontSize:13, color:"#92400e", display:"flex", alignItems:"center", gap:6 }}>
             <span>🧪</span>
@@ -521,60 +553,75 @@ function AuthenticatedApp({ onLogout }) {
           </div>
         )}
 
-        {urgent.length > 0 && (
-          <div style={{ marginBottom:24 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#E65100", textTransform:"uppercase", letterSpacing:1.2, marginBottom:10 }}>⚡ Needs Attention ({urgent.length})</div>
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              {urgent.map(item => {
-                const days = getDays(item); const u = urgencyColor(days);
-                return (
-                  <div key={item.id} style={{ background:u.bg, border:`1.5px solid ${u.border}`, borderRadius:14, padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      <span style={{ fontSize:20 }}>{getItemIcon(item)}</span>
-                      <div>
-                        <div style={{ fontWeight:700, fontSize:15 }}>{item.label}</div>
-                        <div style={{ fontSize:12, color:"#8892b0", marginTop:2 }}>{getDisplayDate(item)}</div>
-                      </div>
-                    </div>
-                    <div style={{ background:u.badgeBg, color:u.badge, borderRadius:8, padding:"4px 12px", fontSize:12, fontWeight:700, fontFamily:"'JetBrains Mono',monospace", border:`1px solid ${u.border}` }}>
-                      {days < 0 ? "EXPIRED" : days === 0 ? "TODAY" : `${days}d`}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+        {activeTab === "attention" && (
+          <>
+            {urgent.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"60px 20px", color:"#8892b0" }}>
+                <div style={{ fontSize:40, marginBottom:10 }}>🎉</div>
+                <div style={{ fontWeight:700, fontSize:16, color:"#1a1f36", marginBottom:6 }}>All clear!</div>
+                <div style={{ fontSize:13 }}>No items need attention right now.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:12, color:"#8892b0", textAlign:"center", marginBottom:14 }}>👉 Swipe right to mark as done</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {urgent.map(item => (
+                    <SwipeCard key={item.id} item={item} getDays={getDays} getDisplayDate={getDisplayDate} onEdit={handleEdit} onDelete={setDeleteId} onDone={handleDone} swipeable={true} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
         )}
 
-        <div style={{ position:"relative", marginBottom:16 }}>
-          <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#8892b0" }}>🔍</span>
-          <input style={{ ...inp, paddingLeft:40, background:"#fff" }} placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-
-        <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-          {CATEGORIES.map(cat => (
-            <button key={cat} className="tab" onClick={() => setActiveCategory(cat)}
-              style={{ background:activeCategory===cat?"#4361EE":"#fff", color:activeCategory===cat?"#fff":"#5a6480", border:activeCategory===cat?"none":"1.5px solid #DDE3F0", borderRadius:20, padding:"6px 14px", fontSize:13, fontWeight:600, boxShadow:activeCategory===cat?"0 2px 10px #4361EE30":"none" }}>
-              {cat !== "All" && CATEGORY_ICONS[cat]+" "}{cat}
-              <span style={{ marginLeft:5, background:activeCategory===cat?"#ffffff33":"#EEF0FA", borderRadius:10, padding:"1px 7px", fontSize:11 }}>{counts[cat]}</span>
-            </button>
-          ))}
-        </div>
-
-        <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-          {sorted.length === 0 && (
-            <div style={{ textAlign:"center", padding:"60px 20px", color:"#8892b0" }}>
-              <div style={{ fontSize:36, marginBottom:10 }}>📋</div>
-              <div style={{ fontWeight:600 }}>No items yet — tap + Add to get started</div>
+        {activeTab === "all" && (
+          <>
+            <div style={{ position:"relative", marginBottom:16 }}>
+              <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#8892b0" }}>🔍</span>
+              <input style={{ ...inp, paddingLeft:40, background:"#fff" }} placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} />
             </div>
-          )}
-          {sorted.map((item, i) => (
-            <div key={item.id} className="row" style={{ animationDelay:`${i*0.03}s` }}>
-              <SwipeCard item={item} getDays={getDays} getDisplayDate={getDisplayDate} onEdit={handleEdit} onDelete={setDeleteId} onDone={handleDone} />
+
+            <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
+              {CATEGORIES.map(cat => (
+                <button key={cat} className="tab" onClick={() => setActiveCategory(cat)}
+                  style={{ background:activeCategory===cat?"#4361EE":"#fff", color:activeCategory===cat?"#fff":"#5a6480", border:activeCategory===cat?"none":"1.5px solid #DDE3F0", borderRadius:20, padding:"6px 14px", fontSize:13, fontWeight:600, boxShadow:activeCategory===cat?"0 2px 10px #4361EE30":"none" }}>
+                  {cat !== "All" && CATEGORY_ICONS[cat]+" "}{cat}
+                  <span style={{ marginLeft:5, background:activeCategory===cat?"#ffffff33":"#EEF0FA", borderRadius:10, padding:"1px 7px", fontSize:11 }}>{counts[cat]}</span>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              {sorted.length === 0 && (
+                <div style={{ textAlign:"center", padding:"60px 20px", color:"#8892b0" }}>
+                  <div style={{ fontSize:36, marginBottom:10 }}>📋</div>
+                  <div style={{ fontWeight:600 }}>No items yet — tap + Add to get started</div>
+                </div>
+              )}
+              {sorted.map((item, i) => (
+                <div key={item.id} className="row" style={{ animationDelay:`${i*0.03}s` }}>
+                  <SwipeCard item={item} getDays={getDays} getDisplayDate={getDisplayDate} onEdit={handleEdit} onDelete={setDeleteId} onDone={handleDone} swipeable={false} />
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* ── FAB ── */}
+      <button
+        onClick={() => { setShowAdd(true); setEditId(null); setForm({ label:"", category:"Vehicle", sub:"", date:"", recurring:false, dayOfMonth:"" }); setErrors({}); }}
+        style={{
+          position:"fixed", bottom:24, right:20, zIndex:40,
+          background:"#4361EE", color:"#fff", border:"none", borderRadius:16,
+          padding:"15px 22px", fontWeight:700, fontSize:15, cursor:"pointer",
+          boxShadow:"0 4px 20px #4361EE50",
+          display:"flex", alignItems:"center", gap:6,
+        }}
+      >
+        <span style={{ fontSize:20, lineHeight:1, marginTop:-1 }}>+</span>
+        <span>Add</span>
+      </button>
 
       {showAdd && <AddEditModal editId={editId} form={form} setForm={setForm} errors={errors} onSubmit={handleSubmit} onClose={closeForm} />}
       {doneModal && <DoneModal doneModal={doneModal} setDoneModal={setDoneModal} onConfirm={confirmDone} />}
