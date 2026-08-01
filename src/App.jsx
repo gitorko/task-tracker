@@ -476,6 +476,7 @@ function AuthenticatedApp({ onLogout }) {
     .sort((a, b) => getDays(a) - getDays(b));
 
   const urgent = items.filter(i => !i.recurring && getDays(i) <= 30).sort((a, b) => getDays(a) - getDays(b));
+  const monthly = items.filter(i => i.recurring).sort((a, b) => getDays(a) - getDays(b));
   const counts = CATEGORIES.reduce((acc, cat) => { acc[cat] = cat === "All" ? items.length : items.filter(i => i.category === cat).length; return acc; }, {});
 
   if (loading) return (
@@ -520,6 +521,7 @@ function AuthenticatedApp({ onLogout }) {
           <div style={{ display:"flex", gap:4, background:"#E2E6F5", borderRadius:12, padding:4 }}>
             {[
               { id:"attention", label:"Needs Attention", icon:"⚡", badge: urgent.length },
+              { id:"monthly",   label:"Monthly",         icon:"🔁", badge: 0 },
               { id:"all",       label:"All Reminders",   icon:"📋", badge: 0 },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab"
@@ -566,6 +568,27 @@ function AuthenticatedApp({ onLogout }) {
                 <div style={{ fontSize:12, color:"#8892b0", textAlign:"center", marginBottom:14 }}>👉 Swipe right to mark as done</div>
                 <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                   {urgent.map(item => (
+                    <SwipeCard key={item.id} item={item} getDays={getDays} getDisplayDate={getDisplayDate} onEdit={handleEdit} onDelete={setDeleteId} onDone={handleDone} swipeable={true} />
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {activeTab === "monthly" && (
+          <>
+            {monthly.length === 0 ? (
+              <div style={{ textAlign:"center", padding:"60px 20px", color:"#8892b0" }}>
+                <div style={{ fontSize:40, marginBottom:10 }}>🔁</div>
+                <div style={{ fontWeight:700, fontSize:16, color:"#1a1f36", marginBottom:6 }}>No monthly reminders</div>
+                <div style={{ fontSize:13 }}>Recurring items you add will show up here.</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ fontSize:12, color:"#8892b0", textAlign:"center", marginBottom:14 }}>👉 Swipe right to mark as done</div>
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  {monthly.map(item => (
                     <SwipeCard key={item.id} item={item} getDays={getDays} getDisplayDate={getDisplayDate} onEdit={handleEdit} onDelete={setDeleteId} onDone={handleDone} swipeable={true} />
                   ))}
                 </div>
