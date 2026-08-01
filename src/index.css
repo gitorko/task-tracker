@@ -23,6 +23,10 @@ input:focus, select:focus {
 }
 .tab:hover { opacity: 0.8; }
 
+@media (max-width: 420px) {
+  .seg-tab { font-size: 12px !important; gap: 4px !important; padding: 8px 4px !important; }
+}
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }

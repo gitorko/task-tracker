@@ -533,18 +533,19 @@ function AuthenticatedApp({ onLogout }) {
               { id:"monthly",   label:"Monthly",         icon:"🔁", badge: 0 },
               { id:"all",       label:"All Reminders",   icon:"📋", badge: 0 },
             ].map(tab => (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab"
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab seg-tab"
                 style={{
-                  flex:1, padding:"9px 8px", borderRadius:9, border:"none", cursor:"pointer", fontFamily:"inherit",
+                  flex:1, minWidth:0, padding:"9px 6px", borderRadius:9, border:"none", cursor:"pointer", fontFamily:"inherit",
                   background: activeTab===tab.id ? "#fff" : "transparent",
                   color: activeTab===tab.id ? "#1a1f36" : "#8892b0",
                   fontWeight: activeTab===tab.id ? 700 : 500, fontSize:14,
                   boxShadow: activeTab===tab.id ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
                   display:"flex", alignItems:"center", justifyContent:"center", gap:6,
+                  whiteSpace:"nowrap", overflow:"hidden",
                   transition:"all 0.15s",
                 }}>
                 <span>{tab.icon}</span>
-                <span>{tab.label}</span>
+                <span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>{tab.label}</span>
                 {tab.badge > 0 && (
                   <span style={{ background:"#E53935", color:"#fff", borderRadius:10, padding:"1px 7px", fontSize:11, fontWeight:700, lineHeight:"18px" }}>
                     {tab.badge}
