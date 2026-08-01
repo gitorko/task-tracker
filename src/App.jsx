@@ -516,7 +516,7 @@ function AuthenticatedApp({ onLogout }) {
         </div>
 
         {/* ── Segmented tab control ── */}
-        <div style={{ padding:"12px 16px" }}>
+        <div style={{ padding:"12px 16px", maxWidth:700, margin:"0 auto", boxSizing:"border-box" }}>
           <div style={{ display:"flex", gap:4, background:"#E2E6F5", borderRadius:12, padding:4 }}>
             {[
               { id:"attention", label:"Needs Attention", icon:"⚡", badge: urgent.length },
