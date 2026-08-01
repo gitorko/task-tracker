@@ -134,10 +134,13 @@ const getItemIcon = (item) => {
   return CATEGORY_ICONS[item.category] || "📋";
 };
 
+const RECURRING_GRACE_DAYS = 15;
+
 const nextRecurringDate = (dayOfMonth, snoozeUntil) => {
   const now = new Date(); now.setHours(0,0,0,0);
   let d = new Date(now.getFullYear(), now.getMonth(), dayOfMonth);
-  if (d < now) d = new Date(now.getFullYear(), now.getMonth()+1, dayOfMonth);
+  const graceEnd = new Date(d); graceEnd.setDate(graceEnd.getDate() + RECURRING_GRACE_DAYS);
+  if (now > graceEnd) d = new Date(now.getFullYear(), now.getMonth()+1, dayOfMonth);
   if (snoozeUntil) {
     const s = new Date(snoozeUntil); s.setHours(0,0,0,0);
     if (d < s) d = new Date(s.getFullYear(), s.getMonth(), dayOfMonth);
@@ -558,19 +561,19 @@ function AuthenticatedApp({ onLogout }) {
 
         {activeTab === "attention" && (
           <>
-            <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:8, marginBottom:16 }}>
-              <span style={{ fontSize:12, color:"#8892b0", fontWeight:600 }}>Due within</span>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:12, color:"#8892b0", fontWeight:600, marginBottom:6 }}>Due within</div>
               <div style={{ display:"flex", gap:4, background:"#E2E6F5", borderRadius:10, padding:3 }}>
                 {[30, 60, 90].map(d => (
                   <button key={d} onClick={() => setAttentionDays(d)}
                     style={{
-                      padding:"5px 12px", borderRadius:7, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13,
+                      flex:1, padding:"8px 12px", borderRadius:7, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14,
                       background: attentionDays===d ? "#fff" : "transparent",
                       color: attentionDays===d ? "#1a1f36" : "#8892b0",
                       fontWeight: attentionDays===d ? 700 : 500,
                       boxShadow: attentionDays===d ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
                     }}>
-                    {d}d
+                    {d} days
                   </button>
                 ))}
               </div>
