@@ -127,8 +127,8 @@ const parseDate = (str) => { const d = new Date(str); d.setHours(0,0,0,0); retur
 const daysUntil = (dateStr) => Math.ceil((parseDate(dateStr) - TODAY) / 86400000);
 const formatDate = (str) => parseDate(str).toLocaleDateString("en-IN", { day:"2-digit", month:"short", year:"numeric" });
 
-const CATEGORIES = ["All","Vehicle","Insurance","Mobile","OTT","Internet","Document","Recurring","Electricity","Water","Property Tax","Rent"];
-const CATEGORY_ICONS = { Vehicle:"🚗", Insurance:"🛡️", Mobile:"📱", OTT:"🎬", Internet:"🌐", Document:"🪪", Recurring:"🔄", Electricity:"⚡", Water:"💧", "Property Tax":"🏠", Rent:"🔑" };
+const CATEGORIES = ["All","Vehicle","Insurance","Mobile","OTT","Internet","Document","Recurring","Electricity","Water","Property Tax","Rent","Fees"];
+const CATEGORY_ICONS = { Vehicle:"🚗", Insurance:"🛡️", Mobile:"📱", OTT:"🎬", Internet:"🌐", Document:"🪪", Recurring:"🔄", Electricity:"⚡", Water:"💧", "Property Tax":"🏠", Rent:"🔑", Fees:"💳" };
 const getItemIcon = (item) => {
   if (item.label.toLowerCase().includes("fiber")) return "📡";
   return CATEGORY_ICONS[item.category] || "📋";
