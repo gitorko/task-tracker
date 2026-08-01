@@ -160,6 +160,7 @@ const inp = { background:"#F8F9FC", border:"1.5px solid #DDE3F0", borderRadius:1
 const SWIPE_THRESHOLD = 80;
 
 const LS_KEY = 'task-tracker-tasks';
+const ACTIVE_TAB_KEY = 'task-tracker-active-tab';
 const IS_DEV = !import.meta.env.PROD;
 
 const local = {
@@ -412,7 +413,11 @@ function AuthenticatedApp({ onLogout }) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [form, setForm] = useState({ label:"", category:"Vehicle", sub:"", date:"", recurring:false, dayOfMonth:"" });
   const [errors, setErrors] = useState({});
-  const [activeTab, setActiveTab] = useState("attention");
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem(ACTIVE_TAB_KEY);
+    return ["attention", "monthly", "all"].includes(saved) ? saved : "attention";
+  });
+  useEffect(() => { localStorage.setItem(ACTIVE_TAB_KEY, activeTab); }, [activeTab]);
   const [attentionDays, setAttentionDays] = useState(30);
 
   useEffect(() => { api.getAll().then(setItems).finally(() => setLoading(false)); }, []);
