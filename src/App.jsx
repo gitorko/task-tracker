@@ -475,7 +475,7 @@ function AuthenticatedApp({ onLogout }) {
     .filter(i => i.label.toLowerCase().includes(search.toLowerCase()) || (i.sub||"").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => getDays(a) - getDays(b));
 
-  const urgent = items.filter(i => getDays(i) <= 30).sort((a, b) => getDays(a) - getDays(b));
+  const urgent = items.filter(i => !i.recurring && getDays(i) <= 30).sort((a, b) => getDays(a) - getDays(b));
   const counts = CATEGORIES.reduce((acc, cat) => { acc[cat] = cat === "All" ? items.length : items.filter(i => i.category === cat).length; return acc; }, {});
 
   if (loading) return (
@@ -520,7 +520,7 @@ function AuthenticatedApp({ onLogout }) {
           <div style={{ display:"flex", gap:4, background:"#E2E6F5", borderRadius:12, padding:4 }}>
             {[
               { id:"attention", label:"Needs Attention", icon:"⚡", badge: urgent.length },
-              { id:"all",       label:"All Tasks",       icon:"📋", badge: 0 },
+              { id:"all",       label:"All Reminders",   icon:"📋", badge: 0 },
             ].map(tab => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="tab"
                 style={{
@@ -576,19 +576,17 @@ function AuthenticatedApp({ onLogout }) {
 
         {activeTab === "all" && (
           <>
-            <div style={{ position:"relative", marginBottom:16 }}>
-              <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#8892b0" }}>🔍</span>
-              <input style={{ ...inp, paddingLeft:40, background:"#fff" }} placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} />
-            </div>
-
-            <div style={{ display:"flex", gap:8, marginBottom:20, flexWrap:"wrap" }}>
-              {CATEGORIES.map(cat => (
-                <button key={cat} className="tab" onClick={() => setActiveCategory(cat)}
-                  style={{ background:activeCategory===cat?"#4361EE":"#fff", color:activeCategory===cat?"#fff":"#5a6480", border:activeCategory===cat?"none":"1.5px solid #DDE3F0", borderRadius:20, padding:"6px 14px", fontSize:13, fontWeight:600, boxShadow:activeCategory===cat?"0 2px 10px #4361EE30":"none" }}>
-                  {cat !== "All" && CATEGORY_ICONS[cat]+" "}{cat}
-                  <span style={{ marginLeft:5, background:activeCategory===cat?"#ffffff33":"#EEF0FA", borderRadius:10, padding:"1px 7px", fontSize:11 }}>{counts[cat]}</span>
-                </button>
-              ))}
+            <div style={{ display:"flex", gap:8, marginBottom:20 }}>
+              <div style={{ position:"relative", flex:1 }}>
+                <span style={{ position:"absolute", left:14, top:"50%", transform:"translateY(-50%)", color:"#8892b0" }}>🔍</span>
+                <input style={{ ...inp, paddingLeft:40, background:"#fff" }} placeholder="Search items..." value={search} onChange={e => setSearch(e.target.value)} />
+              </div>
+              <select value={activeCategory} onChange={e => setActiveCategory(e.target.value)}
+                style={{ ...inp, background:"#fff", width:"auto", flexShrink:0, fontWeight:600, color:"#5a6480" }}>
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat !== "All" ? CATEGORY_ICONS[cat]+" " : ""}{cat} ({counts[cat]})</option>
+                ))}
+              </select>
             </div>
 
             <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
