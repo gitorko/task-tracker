@@ -410,6 +410,7 @@ function AuthenticatedApp({ onLogout }) {
   const [form, setForm] = useState({ label:"", category:"Vehicle", sub:"", date:"", recurring:false, dayOfMonth:"" });
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState("attention");
+  const [attentionDays, setAttentionDays] = useState(30);
 
   useEffect(() => { api.getAll().then(setItems).finally(() => setLoading(false)); }, []);
 
@@ -475,7 +476,7 @@ function AuthenticatedApp({ onLogout }) {
     .filter(i => i.label.toLowerCase().includes(search.toLowerCase()) || (i.sub||"").toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => getDays(a) - getDays(b));
 
-  const urgent = items.filter(i => !i.recurring && getDays(i) <= 30).sort((a, b) => getDays(a) - getDays(b));
+  const urgent = items.filter(i => !i.recurring && getDays(i) <= attentionDays).sort((a, b) => getDays(a) - getDays(b));
   const monthly = items.filter(i => i.recurring).sort((a, b) => getDays(a) - getDays(b));
   const counts = CATEGORIES.reduce((acc, cat) => { acc[cat] = cat === "All" ? items.length : items.filter(i => i.category === cat).length; return acc; }, {});
 
@@ -557,11 +558,29 @@ function AuthenticatedApp({ onLogout }) {
 
         {activeTab === "attention" && (
           <>
+            <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:8, marginBottom:16 }}>
+              <span style={{ fontSize:12, color:"#8892b0", fontWeight:600 }}>Due within</span>
+              <div style={{ display:"flex", gap:4, background:"#E2E6F5", borderRadius:10, padding:3 }}>
+                {[30, 60, 90].map(d => (
+                  <button key={d} onClick={() => setAttentionDays(d)}
+                    style={{
+                      padding:"5px 12px", borderRadius:7, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13,
+                      background: attentionDays===d ? "#fff" : "transparent",
+                      color: attentionDays===d ? "#1a1f36" : "#8892b0",
+                      fontWeight: attentionDays===d ? 700 : 500,
+                      boxShadow: attentionDays===d ? "0 1px 4px rgba(0,0,0,0.10)" : "none",
+                    }}>
+                    {d}d
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {urgent.length === 0 ? (
               <div style={{ textAlign:"center", padding:"60px 20px", color:"#8892b0" }}>
                 <div style={{ fontSize:40, marginBottom:10 }}>🎉</div>
                 <div style={{ fontWeight:700, fontSize:16, color:"#1a1f36", marginBottom:6 }}>All clear!</div>
-                <div style={{ fontSize:13 }}>No items need attention right now.</div>
+                <div style={{ fontSize:13 }}>No items need attention in the next {attentionDays} days.</div>
               </div>
             ) : (
               <>
